@@ -80,7 +80,7 @@
         "operation": "executeQuery",
         "query": "INSERT INTO conversations (phone, name, last_message_at) VALUES ($1, $2, now()) ON CONFLICT (phone) DO UPDATE SET last_message_at = now(), name = COALESCE(conversations.name, EXCLUDED.name) RETURNING id;",
         "options": {
-          "queryReplacement": "={{ $json.phone }},={{ $json.name }}"
+          "queryReplacement": "={{ [$json.phone, $json.name] }}"
         }
       },
       "id": "node-pg-conv",
@@ -94,7 +94,7 @@
         "operation": "executeQuery",
         "query": "INSERT INTO messages (conversation_id, role, content) VALUES ($1, 'user', $2);",
         "options": {
-          "queryReplacement": "={{ $json.id }},={{ $('Normaliza dados').item.json.userText }}"
+          "queryReplacement": "={{ [$json.id, $('Normaliza dados').item.json.userText] }}"
         }
       },
       "id": "node-pg-msg-user",
@@ -143,7 +143,7 @@
         "operation": "executeQuery",
         "query": "INSERT INTO messages (conversation_id, role, content) VALUES ($1, 'assistant', $2);",
         "options": {
-          "queryReplacement": "={{ $('Upsert conversa').item.json.id }},={{ $json.aiText }}"
+          "queryReplacement": "={{ [$('Upsert conversa').item.json.id, $json.aiText] }}"
         }
       },
       "id": "node-pg-msg-ai",
