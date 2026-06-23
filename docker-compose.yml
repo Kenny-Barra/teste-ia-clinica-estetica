@@ -43,7 +43,7 @@ services:
       - estetica_net
 
   evolution:
-    image: atendai/evolution-api:v2.3.7   # FIXADO: v2.4.0+ exige ativacao de licenca
+    image: evoapicloud/evolution-api:v2.3.7   # FIXADO: v2.4.0+ exige ativacao de licenca (repo oficial atual: evoapicloud)
     container_name: estetica_evolution
     restart: unless-stopped
     ports:
