@@ -1,0 +1,205 @@
+{
+  "name": "Agente WhatsApp - Clinica Estetica",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "node-webhook",
+      "name": "Webhook WhatsApp",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "whatsapp-clinica"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "loose" },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.body.data.key.fromMe }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "false", "singleValue": true }
+            },
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.body.data.message.conversation || $json.body.data.message.extendedTextMessage?.text }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-if",
+      "name": "So mensagem de cliente",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "phone",
+              "value": "={{ $json.body.data.key.remoteJid.split('@')[0] }}",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "name",
+              "value": "={{ $json.body.data.pushName }}",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "userText",
+              "value": "={{ $json.body.data.message.conversation || $json.body.data.message.extendedTextMessage?.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-set",
+      "name": "Normaliza dados",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [440, 220]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO conversations (phone, name, last_message_at) VALUES ($1, $2, now()) ON CONFLICT (phone) DO UPDATE SET last_message_at = now(), name = COALESCE(conversations.name, EXCLUDED.name) RETURNING id;",
+        "options": {
+          "queryReplacement": "={{ $json.phone }},={{ $json.name }}"
+        }
+      },
+      "id": "node-pg-conv",
+      "name": "Upsert conversa",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [660, 220]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO messages (conversation_id, role, content) VALUES ($1, 'user', $2);",
+        "options": {
+          "queryReplacement": "={{ $json.id }},={{ $('Normaliza dados').item.json.userText }}"
+        }
+      },
+      "id": "node-pg-msg-user",
+      "name": "Salva msg cliente",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [880, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=YOUR_GEMINI_API_KEY",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"system_instruction\": { \"parts\": [ { \"text\": \"Voce e a atendente virtual de uma clinica de estetica em Belo Horizonte. Tom caloroso, proximo e profissional, em portugues brasileiro coloquial. NUNCA use travessoes. Respostas curtas, proprias para WhatsApp. Objetivos: acolher, entender o que a pessoa procura, qualificar (procedimento, expectativa, urgencia) e responder duvidas sobre procedimentos, valores aproximados e agendamento. Se a pessoa precisar de uma pessoa real (negociar valor, caso clinico, reclamacao), diga que vai chamar uma atendente humana. Nunca prometa resultado clinico nem de diagnostico, sempre direcione para avaliacao presencial.\" } ] }, \"contents\": [ { \"role\": \"user\", \"parts\": [ { \"text\": $('Normaliza dados').item.json.userText } ] } ] } }}",
+        "options": {}
+      },
+      "id": "node-gemini",
+      "name": "Gemini",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 220]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b1",
+              "name": "aiText",
+              "value": "={{ $json.candidates[0].content.parts[0].text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-extract",
+      "name": "Extrai resposta",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1320, 220]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO messages (conversation_id, role, content) VALUES ($1, 'assistant', $2);",
+        "options": {
+          "queryReplacement": "={{ $('Upsert conversa').item.json.id }},={{ $json.aiText }}"
+        }
+      },
+      "id": "node-pg-msg-ai",
+      "name": "Salva resposta IA",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1540, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://evolution:8080/message/sendText/main",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "YOUR_EVOLUTION_API_KEY" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"number\": $('Normaliza dados').item.json.phone, \"text\": $('Extrai resposta').item.json.aiText } }}",
+        "options": {}
+      },
+      "id": "node-send",
+      "name": "Envia WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1760, 220]
+    }
+  ],
+  "connections": {
+    "Webhook WhatsApp": {
+      "main": [[{ "node": "So mensagem de cliente", "type": "main", "index": 0 }]]
+    },
+    "So mensagem de cliente": {
+      "main": [[{ "node": "Normaliza dados", "type": "main", "index": 0 }], []]
+    },
+    "Normaliza dados": {
+      "main": [[{ "node": "Upsert conversa", "type": "main", "index": 0 }]]
+    },
+    "Upsert conversa": {
+      "main": [[{ "node": "Salva msg cliente", "type": "main", "index": 0 }]]
+    },
+    "Salva msg cliente": {
+      "main": [[{ "node": "Gemini", "type": "main", "index": 0 }]]
+    },
+    "Gemini": {
+      "main": [[{ "node": "Extrai resposta", "type": "main", "index": 0 }]]
+    },
+    "Extrai resposta": {
+      "main": [[{ "node": "Salva resposta IA", "type": "main", "index": 0 }]]
+    },
+    "Salva resposta IA": {
+      "main": [[{ "node": "Envia WhatsApp", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false
+}
