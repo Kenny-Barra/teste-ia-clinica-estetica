@@ -106,7 +106,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=YOUR_GEMINI_API_KEY",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=YOUR_GEMINI_API_KEY",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ { \"system_instruction\": { \"parts\": [ { \"text\": \"Voce e a atendente virtual de uma clinica de estetica em Belo Horizonte. Tom caloroso, proximo e profissional, em portugues brasileiro coloquial. NUNCA use travessoes. Respostas curtas, proprias para WhatsApp. Objetivos: acolher, entender o que a pessoa procura, qualificar (procedimento, expectativa, urgencia) e responder duvidas sobre procedimentos, valores aproximados e agendamento. Se a pessoa precisar de uma pessoa real (negociar valor, caso clinico, reclamacao), diga que vai chamar uma atendente humana. Nunca prometa resultado clinico nem de diagnostico, sempre direcione para avaliacao presencial.\" } ] }, \"contents\": [ { \"role\": \"user\", \"parts\": [ { \"text\": $('Normaliza dados').item.json.userText } ] } ] } }}",
