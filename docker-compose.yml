@@ -1,0 +1,118 @@
+# Stack local do Desafio 1: WhatsApp -> Evolution API -> n8n
+#
+# Tudo roda em localhost. Como Evolution e n8n conversam DENTRO da rede do
+# Docker (e o n8n grava no Supabase, que e saida pra internet), nao precisa
+# de tunel (ngrok/cloudflared).
+#
+# Suba com:   docker compose up -d
+# URLs:       Evolution Manager -> http://localhost:8080/manager
+#             n8n               -> http://localhost:5678
+#
+# A chave da Evolution e auto-definida por voce. O valor abaixo (default) ja
+# funciona out-of-the-box; se quiser trocar, crie um arquivo .env na raiz com
+# EVOLUTION_API_KEY=suachave. ESSE MESMO valor precisa ir no header "apikey"
+# do no "Envia WhatsApp" do fluxo do n8n.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: estetica_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: evolution
+      POSTGRES_PASSWORD: evolution
+      POSTGRES_DB: evolution
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U evolution -d evolution"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - estetica_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: estetica_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - estetica_net
+
+  evolution:
+    image: atendai/evolution-api:v2.3.7   # FIXADO: v2.4.0+ exige ativacao de licenca
+    container_name: estetica_evolution
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      # --- Autenticacao ---
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:-estetica-bh-evolution-key-2026}
+      AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: "true"
+      # --- Servidor ---
+      SERVER_URL: http://localhost:8080
+      LANGUAGE: pt-BR
+      # --- Banco (Postgres via Prisma) ---
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://evolution:evolution@postgres:5432/evolution?schema=public
+      DATABASE_CONNECTION_CLIENT_NAME: evolution_local
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "true"
+      DATABASE_SAVE_MESSAGE_UPDATE: "true"
+      DATABASE_SAVE_DATA_CONTACTS: "true"
+      DATABASE_SAVE_DATA_CHATS: "true"
+      # --- Cache (Redis) ---
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://redis:6379/6
+      CACHE_REDIS_PREFIX_KEY: evolution
+      CACHE_REDIS_SAVE_INSTANCES: "false"
+      CACHE_LOCAL_ENABLED: "false"
+      # --- Misc ---
+      DEL_INSTANCE: "false"
+      QRCODE_LIMIT: "30"
+      LOG_LEVEL: ERROR
+    volumes:
+      # Sessao do WhatsApp: sem este volume a sessao se perde a cada restart
+      - evolution_instances:/evolution/instances
+    networks:
+      - estetica_net
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: estetica_n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      N8N_HOST: localhost
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: http://localhost:5678/
+      N8N_SECURE_COOKIE: "false"
+      N8N_RUNNERS_ENABLED: "true"
+      GENERIC_TIMEZONE: America/Sao_Paulo
+      TZ: America/Sao_Paulo
+    volumes:
+      # Workflows e credenciais do n8n persistidos entre restarts
+      - n8n_data:/home/node/.n8n
+    networks:
+      - estetica_net
+
+volumes:
+  postgres_data:
+  redis_data:
+  evolution_instances:
+  n8n_data:
+
+networks:
+  estetica_net:
+    driver: bridge
