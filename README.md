@@ -58,7 +58,11 @@ Custo total: **R$ 0** (tudo em free tier).
 
 ### Pré-requisitos
 - Node 18+ (testado no 20) e npm
-- Docker Desktop
+- Docker Desktop (com WSL 2 atualizado no Windows: `wsl --update`)
+- **~5 GB livres em disco** — as imagens somam ~4 GB. Se o disco encher durante
+  o `docker compose up`, a imagem é extraída corrompida (arquivos com 0 byte) e o
+  Evolution reinicia em loop; nesse caso, libere espaço e rode
+  `docker compose pull evolution` de novo.
 - Uma conta no Supabase e uma API key do Google Gemini (free)
 
 ### 1) Banco (Supabase)

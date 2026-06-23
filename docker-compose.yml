@@ -79,7 +79,7 @@ services:
       # --- Misc ---
       DEL_INSTANCE: "false"
       QRCODE_LIMIT: "30"
-      LOG_LEVEL: ERROR
+      LOG_LEVEL: ERROR,WARN,INFO
     volumes:
       # Sessao do WhatsApp: sem este volume a sessao se perde a cada restart
       - evolution_instances:/evolution/instances
