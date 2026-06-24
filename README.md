@@ -8,6 +8,14 @@ um banco de dados:
 2. **Dashboard** (Next.js na Vercel) que lê esse mesmo banco e mostra métricas,
    gráfico e as conversas.
 
+## 🔗 Entregáveis & Links
+
+- 🌐 **Dashboard ao vivo:** https://teste-ia-clinica-estetica.vercel.app/
+- 🎥 **Vídeo — Desafio 1 (Agente WhatsApp):** https://youtu.be/-G10eKvonMU
+- 🎥 **Vídeo — Desafio 2 (Dashboard):** https://youtu.be/Hx01LbzmGcE
+- 📦 **Fluxo do n8n (importável):** [`n8n-agente-estetica.json`](n8n-agente-estetica.json)
+- 🗄️ **Schema do banco:** [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql)
+
 ```
 WhatsApp (número real) ⇄ Evolution API ⇄ n8n
    n8n: recebe msg → grava no Supabase → Gemini → grava resposta → responde via Evolution
